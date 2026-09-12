@@ -35,13 +35,6 @@ local function bindClick(button, fn)
         lock = tick()
         pcall(fn)
     end)
-    button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if tick() - lock < 0.2 then return end
-            lock = tick()
-            pcall(fn)
-        end
-    end)
 end
 
 local function makeDraggable(frame, dragArea, onClick)
@@ -136,7 +129,6 @@ local function createSlider(parent, labelText, minV, maxV, defaultV, step, onCha
     valueLbl.Parent = row
 
     local value = defaultV
-
     local function setValue(v)
         v = math.clamp(v, minV, maxV)
         if step then v = math.floor(v / step + 0.5) * step end
@@ -147,7 +139,6 @@ local function createSlider(parent, labelText, minV, maxV, defaultV, step, onCha
         valueLbl.Text = string.format("%.2f", v):gsub("%.?0+$", "")
         if onChange then pcall(onChange, v) end
     end
-
     setValue(defaultV)
 
     local dragging = false
@@ -155,7 +146,6 @@ local function createSlider(parent, labelText, minV, maxV, defaultV, step, onCha
         local rel = (input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X
         setValue(minV + rel * (maxV - minV))
     end
-
     track.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
@@ -201,7 +191,6 @@ local function createButton(parent, labelText, valueText, width, cb)
 
     btn.MouseEnter:Connect(function() btn.BackgroundColor3 = C.cardHover end)
     btn.MouseLeave:Connect(function() btn.BackgroundColor3 = C.inner end)
-
     if cb then btn.MouseButton1Click:Connect(function() pcall(cb, btn) end) end
 
     return btn
@@ -210,13 +199,16 @@ end
 local function createToggleRow(parent, labelText, defaultValue, onChange)
     local row = makeRow(parent, labelText, 30)
 
-    local switch = Instance.new("Frame")
+    local switch = Instance.new("TextButton")
     switch.Size = UDim2.fromOffset(36, 20)
     switch.Position = UDim2.new(1, 0, 0.5, 0)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.BackgroundColor3 = defaultValue and C.accentDeep or C.track
+    switch.Text = ""
+    switch.AutoButtonColor = false
     switch.BorderSizePixel = 0
     switch.ZIndex = 10
+    switch.Active = true
     switch.Parent = row
     corner(switch, 10)
 
@@ -231,14 +223,6 @@ local function createToggleRow(parent, labelText, defaultValue, onChange)
     corner(knob, 8)
 
     local value = defaultValue
-    local clickBtn = Instance.new("TextButton")
-    clickBtn.Size = UDim2.new(1, 0, 1, 0)
-    clickBtn.BackgroundTransparency = 1
-    clickBtn.Text = ""
-    clickBtn.ZIndex = 12
-    clickBtn.Active = true
-    clickBtn.Parent = switch
-
     local function update(v)
         value = v
         switch.BackgroundColor3 = v and C.accentDeep or C.track
@@ -247,137 +231,9 @@ local function createToggleRow(parent, labelText, defaultValue, onChange)
         }):Play()
         if onChange then pcall(onChange, v) end
     end
-
-    clickBtn.MouseButton1Click:Connect(function() update(not value) end)
+    switch.MouseButton1Click:Connect(function() update(not value) end)
 
     return {getValue = function() return value end, setValue = update}
-end
-
-local function createDropdown(parent, labelText, options, defaultOption, onSelect, guiRoot)
-    local row = makeRow(parent, labelText, 30)
-
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromOffset(120, 24)
-    btn.Position = UDim2.new(1, 0, 0.5, 0)
-    btn.AnchorPoint = Vector2.new(1, 0.5)
-    btn.BackgroundColor3 = C.inner
-    btn.Text = defaultOption or (options[1] or "")
-    btn.TextColor3 = C.text
-    btn.TextSize = 12
-    btn.Font = Enum.Font.GothamMedium
-    btn.AutoButtonColor = false
-    btn.ZIndex = 10
-    btn.Active = true
-    btn.Parent = row
-    corner(btn, 6)
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = C.border
-    stroke.Thickness = 1
-    stroke.Parent = btn
-
-    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = C.cardHover end)
-    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = C.inner end)
-
-    local panel = Instance.new("Frame")
-    panel.BackgroundColor3 = C.card
-    panel.BorderSizePixel = 0
-    panel.Visible = false
-    panel.ZIndex = 200
-    panel.Parent = guiRoot
-    corner(panel, 6)
-
-    local panelStroke = Instance.new("UIStroke")
-    panelStroke.Color = C.border
-    panelStroke.Thickness = 1
-    panelStroke.Parent = panel
-
-    local panelLayout = Instance.new("UIListLayout")
-    panelLayout.Padding = UDim.new(0, 0)
-    panelLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    panelLayout.Parent = panel
-
-    local selected = defaultOption or options[1]
-
-    for _, opt in ipairs(options) do
-        local optBtn = Instance.new("TextButton")
-        optBtn.Size = UDim2.new(1, 0, 0, 24)
-        optBtn.BackgroundTransparency = 1
-        optBtn.Text = opt
-        optBtn.TextColor3 = C.text
-        optBtn.TextSize = 12
-        optBtn.Font = Enum.Font.GothamMedium
-        optBtn.AutoButtonColor = false
-        optBtn.ZIndex = 201
-        optBtn.Active = true
-        optBtn.Parent = panel
-
-        optBtn.MouseEnter:Connect(function()
-            optBtn.BackgroundTransparency = 0
-            optBtn.BackgroundColor3 = C.cardHover
-        end)
-        optBtn.MouseLeave:Connect(function()
-            optBtn.BackgroundTransparency = 1
-        end)
-        optBtn.MouseButton1Click:Connect(function()
-            selected = opt
-            btn.Text = opt
-            panel.Visible = false
-            if onSelect then pcall(onSelect, opt) end
-        end)
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        if panel.Visible then
-            panel.Visible = false
-        else
-            local abs = btn.AbsolutePosition
-            local absSize = btn.AbsoluteSize
-            panel.Position = UDim2.fromOffset(abs.X, abs.Y + absSize.Y + 4)
-            panel.Size = UDim2.fromOffset(absSize.X, #options * 24)
-            panel.Visible = true
-        end
-    end)
-
-    return {
-        getValue = function() return selected end,
-        setValue = function(v)
-            selected = v
-            btn.Text = v
-            if onSelect then pcall(onSelect, v) end
-        end,
-        setOptions = function(list)
-            for _, ch in ipairs(panel:GetChildren()) do
-                if ch:IsA("TextButton") then ch:Destroy() end
-            end
-            for _, opt in ipairs(list) do
-                local optBtn = Instance.new("TextButton")
-                optBtn.Size = UDim2.new(1, 0, 0, 24)
-                optBtn.BackgroundTransparency = 1
-                optBtn.Text = opt
-                optBtn.TextColor3 = C.text
-                optBtn.TextSize = 12
-                optBtn.Font = Enum.Font.GothamMedium
-                optBtn.AutoButtonColor = false
-                optBtn.ZIndex = 201
-                optBtn.Active = true
-                optBtn.Parent = panel
-                optBtn.MouseEnter:Connect(function()
-                    optBtn.BackgroundTransparency = 0
-                    optBtn.BackgroundColor3 = C.cardHover
-                end)
-                optBtn.MouseLeave:Connect(function()
-                    optBtn.BackgroundTransparency = 1
-                end)
-                optBtn.MouseButton1Click:Connect(function()
-                    selected = opt
-                    btn.Text = opt
-                    panel.Visible = false
-                    if onSelect then pcall(onSelect, opt) end
-                end)
-            end
-        end
-    }
 end
 
 local function createTextbox(parent, labelText, placeholder, defaultText, onSubmit)
@@ -434,9 +290,6 @@ local function createKeybind(parent, labelText, defaultKey, onChange)
     stroke.Thickness = 1
     stroke.Parent = btn
 
-    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = C.cardHover end)
-    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = C.inner end)
-
     local currentKey = defaultKey
     local listening = false
     local conn = nil
@@ -467,7 +320,7 @@ local function createKeybind(parent, labelText, defaultKey, onChange)
     }
 end
 
-local function createSection(page, title, opts)
+local function createSection(page, title, opts, guiRoot)
     opts = opts or {}
 
     local card = Instance.new("Frame")
@@ -533,32 +386,26 @@ local function createSection(page, title, opts)
     bodyLayout.Parent = body
 
     local bodyPadding = Instance.new("UIPadding")
-    bodyPadding.PaddingTop = UDim.new(0, 4)
+    bodyPadding.PaddingTop = UDim.new(0, 8)
     bodyPadding.PaddingBottom = UDim.new(0, 14)
     bodyPadding.Parent = body
 
     local expanded = false
     local enabled = false
+    local rowCount = 0
+
+    local function computeBodyHeight()
+        local h = bodyLayout.AbsoluteContentSize.Y
+        if h < 10 then
+            h = rowCount * 36
+        end
+        return h + 24
+    end
 
     plusBtn.MouseEnter:Connect(function() plusBtn.TextColor3 = C.text end)
     plusBtn.MouseLeave:Connect(function()
-        plusBtn.TextColor3 = (plusBtn.Text == "−") and C.accent or C.textDim
+        plusBtn.TextColor3 = expanded and C.accent or C.textDim
     end)
-
-    card.MouseEnter:Connect(function()
-        if not expanded then
-            TweenService:Create(card, TweenInfo.new(0.15), {BackgroundColor3 = C.cardHover}):Play()
-        end
-    end)
-    card.MouseLeave:Connect(function()
-        if not expanded then
-            TweenService:Create(card, TweenInfo.new(0.15), {BackgroundColor3 = C.card}):Play()
-        end
-    end)
-
-    local function computeBodyHeight()
-        return bodyLayout.AbsoluteContentSize.Y + 18
-    end
 
     bindClick(plusBtn, function()
         expanded = not expanded
@@ -583,87 +430,182 @@ local function createSection(page, title, opts)
         if opts.onToggle then pcall(opts.onToggle, enabled) end
     end)
 
-    local section = {
-        card = card,
-        body = body,
-        title = titleLabel,
-        plus = plusBtn,
-        isEnabled = function() return enabled end,
-        setEnabled = function(v)
-            enabled = v
-            titleLabel.TextColor3 = v and C.accent or C.text
-            if opts.onToggle then pcall(opts.onToggle, v) end
-        end,
-        addSlider = function(label, minV, maxV, def, step, cb)
-            return createSlider(body, label, minV, maxV, def, step, cb)
-        end,
-        addButton = function(label, valueText, width, cb)
-            return createButton(body, label, valueText, width, cb)
-        end,
-        addToggle = function(label, def, cb)
-            return createToggleRow(body, label, def, cb)
-        end,
-        addDropdown = function(label, options, def, cb, guiRoot)
-            return createDropdown(body, label, options, def, cb, guiRoot)
-        end,
-        addTextbox = function(label, placeholder, def, cb)
-            return createTextbox(body, label, placeholder, def, cb)
-        end,
-        addKeybind = function(label, def, cb)
-            return createKeybind(body, label, def, cb)
-        end,
-        addLabel = function(text)
-            local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, -36, 0, 20)
-            row.BackgroundTransparency = 1
-            row.ZIndex = 8
-            row.Parent = body
-            local lbl = Instance.new("TextLabel")
-            lbl.Size = UDim2.new(1, 0, 1, 0)
-            lbl.BackgroundTransparency = 1
-            lbl.Text = text
-            lbl.TextColor3 = C.textDim
-            lbl.TextSize = 12
-            lbl.Font = Enum.Font.GothamMedium
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.ZIndex = 9
-            lbl.Parent = row
-            return lbl
-        end,
-        addDivider = function()
-            local d = Instance.new("Frame")
-            d.Size = UDim2.new(1, -36, 0, 1)
-            d.BackgroundColor3 = C.border
-            d.BorderSizePixel = 0
-            d.ZIndex = 9
-            d.Parent = body
-            return d
-        end,
-        expand = function()
-            if not expanded then
-                bindClick(plusBtn, function() end)
-                plusBtn.Text = "−"
-                plusBtn.TextColor3 = C.accent
-                expanded = true
-                task.wait(0.02)
-                local targetH = computeBodyHeight()
-                TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(1, 0, 0, 60 + targetH)
-                }):Play()
-                TweenService:Create(body, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(1, 0, 0, targetH)
-                }):Play()
-            end
+    local section = {}
+    section.card = card
+    section.body = body
+    section.title = titleLabel
+    section.plus = plusBtn
+    section.isEnabled = function() return enabled end
+    section.setEnabled = function(v)
+        enabled = v
+        titleLabel.TextColor3 = v and C.accent or C.text
+        if opts.onToggle then pcall(opts.onToggle, v) end
+    end
+    function section:addSlider(label, minV, maxV, def, step, cb)
+        rowCount = rowCount + 1
+        return createSlider(body, label, minV, maxV, def, step, cb)
+    end
+    function section:addButton(label, valueText, width, cb)
+        rowCount = rowCount + 1
+        return createButton(body, label, valueText, width, cb)
+    end
+    function section:addToggle(label, def, cb)
+        rowCount = rowCount + 1
+        return createToggleRow(body, label, def, cb)
+    end
+    function section:addTextbox(label, placeholder, def, cb)
+        rowCount = rowCount + 1
+        return createTextbox(body, label, placeholder, def, cb)
+    end
+    function section:addKeybind(label, def, cb)
+        rowCount = rowCount + 1
+        return createKeybind(body, label, def, cb)
+    end
+    function section:addLabel(text)
+        rowCount = rowCount + 1
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, -36, 0, 20)
+        row.BackgroundTransparency = 1
+        row.ZIndex = 8
+        row.Parent = body
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = text
+        lbl.TextColor3 = C.textDim
+        lbl.TextSize = 12
+        lbl.Font = Enum.Font.GothamMedium
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = 9
+        lbl.Parent = row
+        return lbl
+    end
+    function section:addDivider()
+        rowCount = rowCount + 1
+        local d = Instance.new("Frame")
+        d.Size = UDim2.new(1, -36, 0, 1)
+        d.BackgroundColor3 = C.border
+        d.BorderSizePixel = 0
+        d.ZIndex = 9
+        d.Parent = body
+        return d
+    end
+    function section:addDropdown(label, options, defaultOption, onSelect, guiPass)
+        rowCount = rowCount + 1
+        guiPass = guiPass or guiRoot
+
+        local row = makeRow(body, label, 30)
+
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.fromOffset(120, 24)
+        btn.Position = UDim2.new(1, 0, 0.5, 0)
+        btn.AnchorPoint = Vector2.new(1, 0.5)
+        btn.BackgroundColor3 = C.inner
+        btn.Text = defaultOption or (options and options[1] or "")
+        btn.TextColor3 = C.text
+        btn.TextSize = 12
+        btn.Font = Enum.Font.GothamMedium
+        btn.AutoButtonColor = false
+        btn.ZIndex = 10
+        btn.Active = true
+        btn.Parent = row
+        corner(btn, 6)
+
+        local stroke2 = Instance.new("UIStroke")
+        stroke2.Color = C.border
+        stroke2.Thickness = 1
+        stroke2.Parent = btn
+
+        local panel = Instance.new("Frame")
+        panel.BackgroundColor3 = C.card
+        panel.BorderSizePixel = 0
+        panel.Visible = false
+        panel.ZIndex = 500
+        panel.Parent = guiPass
+        corner(panel, 6)
+
+        local panelStroke = Instance.new("UIStroke")
+        panelStroke.Color = C.border
+        panelStroke.Thickness = 1
+        panelStroke.Parent = panel
+
+        local panelLayout = Instance.new("UIListLayout")
+        panelLayout.Padding = UDim.new(0, 0)
+        panelLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        panelLayout.Parent = panel
+
+        local selected = defaultOption or (options and options[1])
+
+        local function addOption(opt)
+            local optBtn = Instance.new("TextButton")
+            optBtn.Size = UDim2.new(1, 0, 0, 24)
+            optBtn.BackgroundTransparency = 1
+            optBtn.Text = opt
+            optBtn.TextColor3 = C.text
+            optBtn.TextSize = 12
+            optBtn.Font = Enum.Font.GothamMedium
+            optBtn.AutoButtonColor = false
+            optBtn.ZIndex = 501
+            optBtn.Active = true
+            optBtn.Parent = panel
+            optBtn.MouseEnter:Connect(function()
+                optBtn.BackgroundTransparency = 0
+                optBtn.BackgroundColor3 = C.cardHover
+            end)
+            optBtn.MouseLeave:Connect(function()
+                optBtn.BackgroundTransparency = 1
+            end)
+            optBtn.MouseButton1Click:Connect(function()
+                selected = opt
+                btn.Text = opt
+                panel.Visible = false
+                if onSelect then pcall(onSelect, opt) end
+            end)
         end
-    }
+
+        if options then
+            for _, opt in ipairs(options) do addOption(opt) end
+        end
+
+        btn.MouseButton1Click:Connect(function()
+            if panel.Visible then
+                panel.Visible = false
+            else
+                local abs = btn.AbsolutePosition
+                local absSize = btn.AbsoluteSize
+                panel.Position = UDim2.fromOffset(abs.X, abs.Y + absSize.Y + 4)
+                local optCount = 0
+                for _, ch in ipairs(panel:GetChildren()) do
+                    if ch:IsA("TextButton") then optCount = optCount + 1 end
+                end
+                panel.Size = UDim2.fromOffset(absSize.X, optCount * 24)
+                panel.Visible = true
+            end
+        end)
+
+        return {
+            getValue = function() return selected end,
+            setValue = function(v)
+                selected = v
+                btn.Text = v
+                if onSelect then pcall(onSelect, v) end
+            end,
+            setOptions = function(list)
+                for _, ch in ipairs(panel:GetChildren()) do
+                    if ch:IsA("TextButton") then ch:Destroy() end
+                end
+                for _, opt in ipairs(list) do addOption(opt) end
+            end
+        }
+    end
     return section
 end
 
 function MoonUI:CreateWindow(config)
     config = config or {}
     local title = config.Title or "Moon"
-    local subtitle = config.Subtitle or "Develop by yk0r"
-    local tag = config.Tag or "Lua"
+    local subtitle = config.Subtitle or ""
+    local tag = config.Tag
     local winSize = config.Size or UDim2.fromOffset(900, 580)
     local guiName = config.Name or "MoonUI"
 
@@ -698,14 +640,9 @@ function MoonUI:CreateWindow(config)
             if pg then gui.Parent = pg parented = true end
         end)
     end
-    if not parented then
-        warn("[MoonUI] 无法挂载 ScreenGui")
-        return nil
-    end
+    if not parented then return nil end
 
-    -- Pill
     local pill = Instance.new("Frame")
-    pill.Name = "Pill"
     pill.Size = UDim2.fromOffset(280, 38)
     pill.Position = UDim2.new(0, 40, 0, 40)
     pill.BackgroundColor3 = Color3.fromRGB(140, 80, 240)
@@ -715,18 +652,6 @@ function MoonUI:CreateWindow(config)
     pill.ZIndex = 10
     pill.Parent = gui
     corner(pill, 19)
-
-    local pillShadow = Instance.new("ImageLabel")
-    pillShadow.Size = UDim2.new(1, 22, 1, 22)
-    pillShadow.Position = UDim2.new(0, -11, 0, -3)
-    pillShadow.BackgroundTransparency = 1
-    pillShadow.Image = "rbxassetid://6014261993"
-    pillShadow.ImageColor3 = Color3.fromRGB(120, 40, 220)
-    pillShadow.ImageTransparency = 0.5
-    pillShadow.ScaleType = Enum.ScaleType.Slice
-    pillShadow.SliceCenter = Rect.new(49, 49, 450, 450)
-    pillShadow.ZIndex = 9
-    pillShadow.Parent = pill
 
     local pillGradient = Instance.new("UIGradient")
     pillGradient.Color = ColorSequence.new({
@@ -770,9 +695,7 @@ function MoonUI:CreateWindow(config)
         end
     end)
 
-    -- Main
     local main = Instance.new("Frame")
-    main.Name = "Main"
     main.Size = winSize
     main.Position = UDim2.new(0.5, 0, 0.5, 0)
     main.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -835,7 +758,6 @@ function MoonUI:CreateWindow(config)
         pill.Visible = false
     end)
 
-    -- Sidebar
     local sidebar = Instance.new("Frame")
     sidebar.Size = UDim2.new(0, 200, 1, 0)
     sidebar.BackgroundTransparency = 1
@@ -862,17 +784,19 @@ function MoonUI:CreateWindow(config)
     logoText.ZIndex = 8
     logoText.Parent = logoArea
 
-    local logoTag = Instance.new("TextLabel")
-    logoTag.Size = UDim2.fromOffset(30, 16)
-    logoTag.Position = UDim2.new(0, 20 + (#title * 11), 0, 26)
-    logoTag.BackgroundColor3 = C.accentDeep
-    logoTag.Text = tag
-    logoTag.TextColor3 = Color3.fromRGB(255, 255, 255)
-    logoTag.TextSize = 10
-    logoTag.Font = Enum.Font.GothamBold
-    logoTag.ZIndex = 8
-    logoTag.Parent = logoArea
-    corner(logoTag, 4)
+    if tag and tag ~= "" then
+        local logoTag = Instance.new("TextLabel")
+        logoTag.Size = UDim2.fromOffset(30, 16)
+        logoTag.Position = UDim2.new(0, 20 + (#title * 11), 0, 26)
+        logoTag.BackgroundColor3 = C.accentDeep
+        logoTag.Text = tag
+        logoTag.TextColor3 = Color3.fromRGB(255, 255, 255)
+        logoTag.TextSize = 10
+        logoTag.Font = Enum.Font.GothamBold
+        logoTag.ZIndex = 8
+        logoTag.Parent = logoArea
+        corner(logoTag, 4)
+    end
 
     local logoSub = Instance.new("TextLabel")
     logoSub.Size = UDim2.new(1, -30, 0, 16)
@@ -893,7 +817,7 @@ function MoonUI:CreateWindow(config)
     tabList.BorderSizePixel = 0
     tabList.ScrollBarThickness = 2
     tabList.ScrollBarImageColor3 = C.border
-    tabList.CanvasSize = UDim2.new(0, 0, 0, 520)
+    tabList.CanvasSize = UDim2.new(0, 0, 0, 2000)
     tabList.ZIndex = 6
     tabList.Parent = sidebar
 
@@ -993,10 +917,8 @@ function MoonUI:CreateWindow(config)
         end)
 
         local tab = {}
-        tab.data = data
-        tab.page = page
         function tab:CreateSection(sectionTitle, opts)
-            return createSection(page, sectionTitle, opts)
+            return createSection(page, sectionTitle, opts, gui)
         end
         function tab:Select()
             btn.MouseButton1Click:Fire()
