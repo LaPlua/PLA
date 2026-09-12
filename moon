@@ -20,6 +20,9 @@ local C = {
     track      = Color3.fromRGB(45, 45, 55),
 }
 
+local ROW_HEIGHT = 36
+local BODY_BASE = 24
+
 local function corner(parent, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r)
@@ -395,11 +398,19 @@ local function createSection(page, title, opts, guiRoot)
     local rowCount = 0
 
     local function computeBodyHeight()
-        local h = bodyLayout.AbsoluteContentSize.Y
-        if h < 10 then
-            h = rowCount * 36
-        end
-        return h + 24
+        if rowCount <= 0 then return BODY_BASE end
+        return rowCount * ROW_HEIGHT + BODY_BASE
+    end
+
+    local function refreshHeight()
+        if not expanded then return end
+        local targetH = computeBodyHeight()
+        TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(1, 0, 0, 60 + targetH)
+        }):Play()
+        TweenService:Create(body, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(1, 0, 0, targetH)
+        }):Play()
     end
 
     plusBtn.MouseEnter:Connect(function() plusBtn.TextColor3 = C.text end)
@@ -411,17 +422,16 @@ local function createSection(page, title, opts, guiRoot)
         expanded = not expanded
         plusBtn.Text = expanded and "−" or "+"
         plusBtn.TextColor3 = expanded and C.accent or C.textDim
-        local targetH = 0
         if expanded then
-            task.wait(0.02)
-            targetH = computeBodyHeight()
+            refreshHeight()
+        else
+            TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 60)
+            }):Play()
+            TweenService:Create(body, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 0)
+            }):Play()
         end
-        TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(1, 0, 0, 60 + targetH)
-        }):Play()
-        TweenService:Create(body, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(1, 0, 0, targetH)
-        }):Play()
     end)
 
     bindClick(titleLabel, function()
@@ -441,25 +451,36 @@ local function createSection(page, title, opts, guiRoot)
         titleLabel.TextColor3 = v and C.accent or C.text
         if opts.onToggle then pcall(opts.onToggle, v) end
     end
+
     function section:addSlider(label, minV, maxV, def, step, cb)
         rowCount = rowCount + 1
-        return createSlider(body, label, minV, maxV, def, step, cb)
+        local r = createSlider(body, label, minV, maxV, def, step, cb)
+        refreshHeight()
+        return r
     end
     function section:addButton(label, valueText, width, cb)
         rowCount = rowCount + 1
-        return createButton(body, label, valueText, width, cb)
+        local r = createButton(body, label, valueText, width, cb)
+        refreshHeight()
+        return r
     end
     function section:addToggle(label, def, cb)
         rowCount = rowCount + 1
-        return createToggleRow(body, label, def, cb)
+        local r = createToggleRow(body, label, def, cb)
+        refreshHeight()
+        return r
     end
     function section:addTextbox(label, placeholder, def, cb)
         rowCount = rowCount + 1
-        return createTextbox(body, label, placeholder, def, cb)
+        local r = createTextbox(body, label, placeholder, def, cb)
+        refreshHeight()
+        return r
     end
     function section:addKeybind(label, def, cb)
         rowCount = rowCount + 1
-        return createKeybind(body, label, def, cb)
+        local r = createKeybind(body, label, def, cb)
+        refreshHeight()
+        return r
     end
     function section:addLabel(text)
         rowCount = rowCount + 1
@@ -478,6 +499,7 @@ local function createSection(page, title, opts, guiRoot)
         lbl.TextXAlignment = Enum.TextXAlignment.Left
         lbl.ZIndex = 9
         lbl.Parent = row
+        refreshHeight()
         return lbl
     end
     function section:addDivider()
@@ -488,6 +510,7 @@ local function createSection(page, title, opts, guiRoot)
         d.BorderSizePixel = 0
         d.ZIndex = 9
         d.Parent = body
+        refreshHeight()
         return d
     end
     function section:addDropdown(label, options, defaultOption, onSelect, guiPass)
@@ -521,7 +544,7 @@ local function createSection(page, title, opts, guiRoot)
         panel.BorderSizePixel = 0
         panel.Visible = false
         panel.ZIndex = 500
-        panel.Parent = guiPass
+        panel.Parent = guiPass or gui
         corner(panel, 6)
 
         local panelStroke = Instance.new("UIStroke")
@@ -583,6 +606,8 @@ local function createSection(page, title, opts, guiRoot)
             end
         end)
 
+        refreshHeight()
+
         return {
             getValue = function() return selected end,
             setValue = function(v)
@@ -598,6 +623,7 @@ local function createSection(page, title, opts, guiRoot)
             end
         }
     end
+
     return section
 end
 
@@ -847,6 +873,21 @@ function MoonUI:CreateWindow(config)
     local tabByName = {}
     local selectedTab = nil
 
+    local function doSelectTab(data)
+        if selectedTab == data then return end
+        if selectedTab then
+            selectedTab.button.BackgroundTransparency = 1
+            selectedTab.button.BackgroundColor3 = C.bg
+            selectedTab.label.TextColor3 = C.textDim
+            selectedTab.page.Visible = false
+        end
+        selectedTab = data
+        data.button.BackgroundTransparency = 0
+        data.button.BackgroundColor3 = C.accentDeep
+        data.label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        data.page.Visible = true
+    end
+
     local window = {}
     window.gui = gui
     window.main = main
@@ -901,34 +942,21 @@ function MoonUI:CreateWindow(config)
         btn.MouseLeave:Connect(function()
             if selectedTab ~= data then btn.BackgroundTransparency = 1 end
         end)
-        btn.MouseButton1Click:Connect(function()
-            if selectedTab == data then return end
-            if selectedTab then
-                selectedTab.button.BackgroundTransparency = 1
-                selectedTab.button.BackgroundColor3 = C.bg
-                selectedTab.label.TextColor3 = C.textDim
-                selectedTab.page.Visible = false
-            end
-            selectedTab = data
-            btn.BackgroundTransparency = 0
-            btn.BackgroundColor3 = C.accentDeep
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
-            page.Visible = true
-        end)
+        btn.MouseButton1Click:Connect(function() doSelectTab(data) end)
 
         local tab = {}
         function tab:CreateSection(sectionTitle, opts)
             return createSection(page, sectionTitle, opts, gui)
         end
         function tab:Select()
-            btn.MouseButton1Click:Fire()
+            doSelectTab(data)
         end
         return tab
     end
 
     function window:SelectTab(name)
         local d = tabByName[name]
-        if d then d.button.MouseButton1Click:Fire() end
+        if d then doSelectTab(d) end
     end
 
     function window:Minimize()
