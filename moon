@@ -34,7 +34,7 @@ local function bindClick(button, fn)
     button.Active = true
     local lock = 0
     button.MouseButton1Click:Connect(function()
-        if tick() - lock < 0.2 then return end
+        if tick() - lock < 0.05 then return end
         lock = tick()
         pcall(fn)
     end)
@@ -670,7 +670,8 @@ function MoonUI:CreateWindow(config)
 
     local pill = Instance.new("Frame")
     pill.Size = UDim2.fromOffset(280, 38)
-    pill.Position = UDim2.new(0, 40, 0, 40)
+    pill.AnchorPoint = Vector2.new(0.5, 0)
+    pill.Position = UDim2.new(0.5, 0, 0, 16)
     pill.BackgroundColor3 = Color3.fromRGB(140, 80, 240)
     pill.BorderSizePixel = 0
     pill.Active = true
