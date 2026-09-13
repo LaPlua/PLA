@@ -947,3 +947,4 @@ end
 getgenv().MoonLib = MoonLib
 
 print("[MoonLib] 已加载 v" .. MoonLib.VERSION)
+Window.Section = TabMeta.Section
